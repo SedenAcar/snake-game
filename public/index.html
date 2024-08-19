@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çok Oyunculu Yılan Oyunu</title>
+    <style>
+        canvas {
+            background-color: #000;
+            display: block;
+            margin: 0 auto;
+        }
+        #scoreboard {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #scoreboard ul {
+            list-style: none;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="scoreboard">
+        <ul id="playerScores"></ul>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let players = {};
+        let food = {};
+
+        socket.on('currentPlayers', (serverPlayers) => {
+            players = serverPlayers;
+        });
+
+        socket.on('updatePlayers', (serverPlayers) => {
+            players = serverPlayers;
+            draw();
+            updateScoreboard();
+        });
+
+        socket.on('foodLocation', (serverFood) => {
+            food = serverFood;
+            draw();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const direction = { x: 0, y: 0 };
+            if (e.key === 'ArrowUp') direction.y = -10;
+            else if (e.key === 'ArrowDown') direction.y = 10;
+            else if (e.key === 'ArrowLeft') direction.x = -10;
+            else if (e.key === 'ArrowRight') direction.x = 10;
+
+            if (direction.x !== 0 || direction.y !== 0) {
+                socket.emit('playerMovement', { direction });
+            }
+        });
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let id in players) {
+                const player = players[id];
+                ctx.fillStyle = player.color;
+
+                player.position.forEach(segment => {
+                    ctx.fillRect(segment.x, segment.y, 10, 10);
+                });
+            }
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x, food.y, 10, 10);
+        }
+
+        function updateScoreboard() {
+            const playerScores = document.getElementById('playerScores');
+            playerScores.innerHTML = '';
+            for (let id in players) {
+                const player = players[id];
+                const li = document.createElement('li');
+                li.textContent = `${player.username}: ${player.score}`;
+                playerScores.appendChild(li);
+            }
+        }
+
+        const username = prompt('Lütfen bir takma isim girin:');
+        socket.emit('newPlayer', username);
+    </script>
+</body>
+</html>
